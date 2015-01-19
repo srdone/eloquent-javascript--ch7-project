@@ -66,17 +66,6 @@ var directions = {
   "nw": new Vector(-1, -1)
 };
 
-//methods to implement
-//Takes a direction, returns the character in that direction
-function look(direction) {}
-
-//Takes a map character, returns a direction that contains it
-function find(mapChar) {}
-
-//Takes a map character, returns an array of all the directions that contain it
-function findAll(mapChar) {}
-
-
 // Example of a simple stupid critter
 function randomElement(array) {
   return array[Math.floor(Math.random() * array.length)];
@@ -198,4 +187,134 @@ console.log(world.toString());
 for (var i = 0; i < 5; i++) {
   world.turn();
   console.log(world.toString());
+}
+
+function dirPlus(dir, n) {
+  var index = directionNames.indexOf(dir);
+  return directionNames[(index + n + 8) % 8];
+}
+
+function WallFollower() {
+  this.dir = "s";
+}
+
+WallFollower.prototype.act = function(view) {
+  var start = this.dir;
+  if (view.look(dirPlus(this.dir, -3)) !== " ") {
+    start = this.dir = dirPlus(this.dir, -2);
+  }
+  while (view.look(this.dir) !== " ") {
+    this.dir = dirPlus(this.dir, 1);
+    if (this.dir === start) break;
+  }
+  return {type: "move", direction: this.dir};
+};
+
+function LifelikeWorld(map, legend) {
+  World.call(this, map, legend);
+}
+LifelikeWorld.prototype = Object.create(World.prototype);
+
+var actionTypes = Object.create(null);
+
+LifelikeWorld.prototype.letAct = function(critter, vector) {
+  var action = critter.act(new View(this, vector));
+  var handled = action &&
+    action.type in actionTypes &&
+    actionTypes[action.type].call(this, critter, vector, action);
+
+  if (!handled) {
+    critter.energy -= 0.2;
+    if (critter.energy <= 0) {
+      this.grid.set(vector, null);
+    }
+  }
+};
+
+actionTypes.grow = function(critter) {
+  critter.energy += 0.5;
+  return true;
+};
+
+actionTypes.move = function(critter, vector, action) {
+  var dest = this.checkDestination(action, vector);
+  if (dest === null ||
+      critter.energy <= 1 ||
+      this.grid.get(dest) !== null)
+    return false;
+  critter.energy -= 1;
+  this.grid.set(vector, null);
+  this.grid.set(dest, critter);
+  return true;
+};
+
+actionTypes.eat = function(critter, vector, action) {
+  var dest = this.checkDestination(action, vector);
+  var atDest = dest !== null && this.grid.get(dest);
+  if (!atDest || atDest.energy === null) return false;
+  critter.energy += atDest.energy;
+  this.grid.set(dest, null);
+  return true;
+};
+
+actionTypes.reproduce = function(critter, vector, action) {
+  var baby = elementFromChar(this.legend, critter.originChar);
+  var dest = this.checkDestination(action, vector);
+  if (dest === null ||
+      critter.energy <= 2 * baby.energy ||
+      this.grid.get(dest) !== null)
+    return false;
+  critter.energy -= 2 * baby.energy;
+  this.grid.set(dest, baby);
+  return true;
+};
+
+function Plant() {
+  this.energy = 3 + Math.random() * 4;
+}
+Plant.prototype.act = function(context) {
+  if (this.energy > 15) {
+    var space = context.find(" ");
+    if (space) return {type: "reproduce", direction: space};
+  }
+  if (this.energy < 20) return {type: "grow"};
+};
+
+function PlantEater() {
+  this.energy = 20;
+}
+PlantEater.prototype.act = function(context) {
+  var space = context.find(" ");
+  if (this.energy > 60 && space)
+    return {type: "reproduce", direction: space};
+  var plant = context.find("*");
+  if (plant)
+    return {type: "eat", direction: plant};
+  if (space)
+    return {type: "move", direction: space};
+};
+
+var valley = new LifelikeWorld(
+ ["############################",
+  "#####                ~######",
+  "##   ***                **##",
+  "#   *##**   ***   **  O  *##",
+  "#    ***    *O*   ##**    *#",
+  "#~      O   ***   ##***    #",
+  "#                 ##**     #",
+  "#   O       #*             #",
+  "#*          #**       O    #",
+  "#***        ##**    O    **#",
+  "##****     ###***       *###",
+  "############################"],
+  {"#": Wall,
+   "O": PlantEater,
+   "*": Plant,
+   "~": WallFollower}
+);
+
+console.log(valley.toString());
+for (var i = 0; i < 5; i++) {
+  valley.turn();
+  console.log(valley.toString());
 }
