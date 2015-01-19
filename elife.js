@@ -1,3 +1,5 @@
+var assert = require('assert');
+
 var plan = ["############################",
             "#      #    #      o      ##",
             "#                          #",
@@ -18,6 +20,20 @@ function Vector(x, y) {
 Vector.prototype.plus = function(other) {
   return new Vector(this.x + other.x, this.y + other.y);
 };
+
+//Test the vector
+(function() {
+  var vec1 = new Vector(1, 1);
+  var vec2 = new Vector(10, 10);
+  var vec3 = new Vector(-1, -1);
+
+  assert.equal(vec1.x, 1);
+  assert.equal(vec1.y, 1);
+
+  var vec1p3 = vec1.plus(vec3);
+  assert.equal(vec1p3.x, 0);
+  assert.equal(vec1p3.y, 0);
+}());
 
 function Grid(width, height) {
   this.space = new Array(width * height);
@@ -314,7 +330,7 @@ var valley = new LifelikeWorld(
 );
 
 console.log(valley.toString());
-for (var i = 0; i < 5; i++) {
+for (var i = 0; i < 50; i++) {
   valley.turn();
   console.log(valley.toString());
 }
